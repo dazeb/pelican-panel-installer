@@ -23,7 +23,20 @@ Then run the script
 ```shell
 ./install_pelican.sh
 ```
-You can run the script more than once. Lets say for instance you want to create a new admin user if you forgot to create one you can run the script again without negative consequences.
+
+You can run the script more than once. Lets say for instance you want to create a new admin user if you forgot to create one you can run the script again without negative consequences.  
+
+## Run Webserver Config (nginx support)  
+
+```shell
+wget https://raw.githubusercontent.com/dazeb/pelican-installer/main/webserver_config_nginx.sh
+chmod +x webserver_config_nginx.sh
+```
+Run the config script.  
+
+```shell
+./webserver_config_nginx.sh
+```
 
 # Wings Installer  
 
@@ -39,3 +52,10 @@ Same as before, download and run the script.
 wget https://raw.githubusercontent.com/dazeb/pelican-installer/main/install_wings.sh
 chmod +x install_wings.sh
 ```
+Run the script  
+
+```shell
+./install_wings.sh
+```
+
+====
