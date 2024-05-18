@@ -42,7 +42,7 @@ Run the config script.
 
 ### Requirements:   
 Ubuntu 24.04 (Recomended) ✅  
-VPS or Virtual Machine ✅  
+VPS, Virtual Machine, LXC with nesting enabled ✅  
 IP Address ✅  
 SSL SUPPORT ❌  
 
