@@ -1,5 +1,5 @@
 # Pelican Panel Installer Beta 0.0.1
-A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development)
+A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development) 🚧
 
 ### Requirements:   
 Ubuntu 24.04 (Recomended) ✅  
