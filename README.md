@@ -1,5 +1,5 @@
 # Pelican Panel Installer Beta 0.0.1
-A shell script to install Pelican Panel on a VPS or Virtual Machine.
+A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development)
 
 ### Requirements:   
 Ubuntu 24.04 (Recomended) ✅  
@@ -25,3 +25,17 @@ Then run the script
 ```
 You can run the script more than once. Lets say for instance you want to create a new admin user if you forgot to create one you can run the script again without negative consequences.
 
+# Wings Installer  
+
+### Requirements:   
+Ubuntu 24.04 (Recomended) ✅  
+VPS or Virtual Machine ✅  
+IP Address ✅  
+SSL SUPPORT ❌  
+
+Same as before, download and run the script.  
+
+```shell
+wget https://raw.githubusercontent.com/dazeb/pelican-installer/main/install_wings.sh
+chmod +x install_wings.sh
+```
