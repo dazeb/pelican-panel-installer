@@ -58,4 +58,8 @@ Run the script
 ./install_wings.sh
 ```
 
-====
+The script will ask you to copy the configuration from your Pelican host
+
+Paste the config in the file and `ctrl+x` then `y` then `enter` and the script will proceed.
+
+Go into your admin panel and add the node and create the server.
