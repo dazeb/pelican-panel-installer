@@ -53,7 +53,7 @@ add_php_repo() {
 install_dependencies() {
     print_success "Installing dependencies..."
     sudo apt-get update
-    sudo apt-get install -y php8.2 php8.2-gd php8.2-mysql php8.2-mbstring php8.2-bcmath php8.2-xml php8.2-curl php8.2-zip php8.2-intl php8.2-sqlite3 php8.2-fpm mysql-server curl tar composer
+    sudo apt-get install -y php8.2 php8.2-gd php8.2-mysql php8.2-mbstring php8.2-bcmath php8.2-xml php8.2-curl php8.2-zip php8.2-intl php8.2-sqlite3 php8.2-fpm curl tar composer redis-server
     if [ "$WEBSERVER" == "NGINX" ]; then
         sudo apt-get install -y nginx
     elif [ "$WEBSERVER" == "Apache" ]; then
@@ -64,6 +64,38 @@ install_dependencies() {
         exit 1
     else
         print_success "Dependencies installed successfully."
+    fi
+}
+
+# Function to install MariaDB
+install_mariadb() {
+    print_success "Installing MariaDB..."
+    curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | sudo bash
+    sudo apt-get install -y mariadb-server
+    if [ $? -ne 0 ]; then
+        print_error "Failed to install MariaDB."
+        exit 1
+    else
+        print_success "MariaDB installed successfully."
+    fi
+}
+
+# Function to create MySQL user and database
+setup_mysql() {
+    print_success "Setting up MySQL user and database..."
+    MYSQL_ROOT_PASSWORD=$(whiptail --passwordbox "Enter the MySQL root password:" 10 60 3>&1 1>&2 2>&3)
+    MYSQL_PELICAN_PASSWORD=$(whiptail --passwordbox "Enter the password for the 'pelican' MySQL user:" 10 60 3>&1 1>&2 2>&3)
+
+    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE USER 'pelican'@'127.0.0.1' IDENTIFIED BY '$MYSQL_PELICAN_PASSWORD';"
+    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE panel;"
+    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON panel.* TO 'pelican'@'127.0.0.1';"
+    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "FLUSH PRIVILEGES;"
+
+    if [ $? -ne 0 ]; then
+        print_error "Failed to set up MySQL user and database."
+        exit 1
+    else
+        print_success "MySQL user and database set up successfully."
     fi
 }
 
@@ -281,9 +313,53 @@ EOL
     fi
 }
 
+# Function to configure Redis queue worker
+configure_redis_queue_worker() {
+    print_success "Configuring Redis queue worker..."
+
+    cat <<EOL | sudo tee /etc/systemd/system/pelican.service
+# Pelican Queue File
+# ----------------------------------
+
+[Unit]
+Description=Pelican Queue Service
+After=redis-server.service
+
+[Service]
+# On some systems the user and group might be different.
+# Some systems use \`apache\` or \`nginx\` as the user and group.
+User=www-data
+Group=www-data
+Restart=always
+ExecStart=/usr/bin/php /var/www/pelican/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
+StartLimitInterval=180
+StartLimitBurst=30
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+    if [ "$OS" == "Rocky Linux 9" ]; then
+        sudo sed -i 's/redis-server.service/redis.service/' /etc/systemd/system/pelican.service
+    fi
+
+    sudo systemctl enable --now redis-server
+    sudo systemctl enable --now pelican.service
+
+    if [ $? -ne 0 ]; then
+        print_error "Failed to configure Redis queue worker."
+        exit 1
+    else
+        print_success "Redis queue worker configured successfully."
+    fi
+}
+
 # Main script execution
 add_php_repo
 install_dependencies
+install_mariadb
+setup_mysql
 create_directories_and_download
 install_composer_dependencies
 configure_environment
@@ -293,5 +369,6 @@ create_admin_user
 configure_crontab
 set_permissions
 configure_nginx
+configure_redis_queue_worker
 
 print_success "Pelican Panel installation and configuration completed successfully!"
