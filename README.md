@@ -1,7 +1,12 @@
 # Unofficial Pelican Panel Installer Beta 0.0.1
 A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development) 🚧
 
-Pelican Panel is the successor to Pterodactyl Game Panel. Used for hosting game servers in your home network or online.  
+#### Pelican Panel is the successor to Pterodactyl Game Panel. Used for hosting game servers in your home network or online.  
+
+Follow the install scripts below **in order**.  
+
+- Install Pelican and Wings on seperate servers or Virtual Machines.  
+- Run `webserver_config_nginx.sh` on the **Pelican server** to set up nginx.
 
 ### Requirements:   
 - 🐧 Ubuntu 24.04 (Recommended) ✅  
@@ -97,3 +102,5 @@ chmod +x install_wings.sh
 The script will ask you to copy the configuration from your Pelican host. Paste the config in the file and press `ctrl+x`, then `y`, then `enter` and the script will proceed.
 
 Go into your admin panel, add the node, and create the server.
+
+(To be completed)
