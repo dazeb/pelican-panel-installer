@@ -103,4 +103,11 @@ The script will ask you to copy the configuration from your Pelican host. Paste 
 
 Go into your admin panel, add the node, and create the server.
 
+### Updating Wings
+To update Wings, simply run the `install_wings.sh` script again. The script will check for the latest version of Wings and update it if necessary.
+
+```shell
+./install_wings.sh
+```
+
 (To be completed)
