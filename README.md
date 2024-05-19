@@ -24,6 +24,23 @@ chmod +x install_pelican.sh
 ./install_pelican.sh
 ```
 
+### What the script installs:
+- Adds the `ondrej/php` repository.
+- Installs dependencies including:
+  - PHP 8.2 and required PHP extensions (`gd`, `mysql`, `mbstring`, `bcmath`, `xml`, `curl`, `zip`, `intl`, `sqlite3`, `fpm`).
+  - MySQL server.
+  - `curl`, `tar`, and `composer`.
+  - NGINX or Apache webserver (based on user selection).
+- Creates necessary directories and downloads the Pelican Panel files.
+- Installs composer dependencies.
+- Configures the environment using artisan commands.
+- Sets up mail configuration (optional).
+- Initializes the database.
+- Creates an admin user (optional).
+- Configures crontab for scheduled tasks.
+- Sets appropriate file permissions.
+- Configures NGINX (if selected as the webserver).
+
 You can run the script more than once. For instance, if you want to create a new admin user after forgetting to create one initially, you can run the script again without negative consequences.  
 
 ## Run Webserver Config (nginx support)  
@@ -59,6 +76,14 @@ chmod +x install_wings.sh
 ```shell
 ./install_wings.sh
 ```
+
+### What the script does:
+- Checks and installs Docker if not already installed.
+- Checks and installs Docker Compose if not already installed.
+- Creates necessary directories and downloads the Wings executable.
+- Configures Wings by prompting the user to paste the configuration from the Pelican host.
+- Starts Wings in debug mode to ensure it runs without errors.
+- Daemonizes Wings using systemd to run it as a background service.
 
 The script will ask you to copy the configuration from your Pelican host. Paste the config in the file and press `ctrl+x`, then `y`, then `enter` and the script will proceed.
 
