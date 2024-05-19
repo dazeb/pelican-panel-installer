@@ -38,6 +38,7 @@ chmod +x install_pelican.sh
   - MySQL server.
   - `curl`, `tar`, and `composer`.
   - NGINX or Apache webserver (based on user selection).
+  - Redis server.
 - 📂 Creates necessary directories and downloads the Pelican Panel files.
 - 🛠 Installs composer dependencies.
 - ⚙️ Configures the environment using artisan commands.
@@ -47,6 +48,8 @@ chmod +x install_pelican.sh
 - ⏲ Configures crontab for scheduled tasks.
 - 🔒 Sets appropriate file permissions.
 - 🌐 Configures NGINX (if selected as the webserver).
+- 🐬 Installs MariaDB and sets up MySQL user and database.
+- 🔄 Configures Redis queue worker.
 
 You can run the script more than once. For instance, if you want to create a new admin user after forgetting to create one initially, you can run the script again without negative consequences.  
 
