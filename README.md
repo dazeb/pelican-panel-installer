@@ -1,5 +1,9 @@
 # Unofficial Pelican Panel Installer Beta 0.0.1
-A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development) 🚧
+A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development but currently working) 🚧
+
+Pelican Panel is the successor to Pterodactyl, the game hosting platform. 
+
+In the below example we are using two VM's hosted on a homelab Proxmox host.
 
 ### Requirements:   
 - Ubuntu 24.04 (Recommended) ✅  
