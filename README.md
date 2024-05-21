@@ -1,7 +1,9 @@
 # Unofficial Pelican Panel Installer Beta 0.0.1
-A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development) 🚧
+A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development but working) 🚧
 
 #### Pelican Panel is the successor to Pterodactyl Game Panel. Used for hosting game servers in your home network or online.  
+
+Pelican Panel can be found at https://pelican.dev/ and the GitHub repo is [HERE](https://github.com/pelican-dev/panel)
 
 Follow the install scripts below **in order**.  
 
