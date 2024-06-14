@@ -1,4 +1,10 @@
-# Unofficial Pelican Panel Installer Beta 0.0.2
+# Unofficial Pelican Panel Installer BETA 0.0.2
+
+## 14 Jun 04 - NEW BRANCH FOR TESTING. SUPPORTS ALL WEB SERVERS.
+Please test the new beta branch and report any problems. ❤️
+
+See [HERE](https://github.com/dazeb/pelican-panel-installer/edit/main/README.md#changelog) for changes.
+
 A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development but working) 🚧
 
 #### Pelican Panel is the successor to Pterodactyl Game Panel. Used for hosting game servers in your home network or online.  
@@ -113,6 +119,34 @@ To update Wings, simply run the `install_wings.sh` script again. The script will
 
 ```shell
 ./install_wings.sh
-```
+```  
 
-(To be completed)
+## Changelog  
+
+**v0.0.2**
+### Pelican Panel Installer Script  
+
+Updated to install PHP 8.3 and necessary extensions.  
+Added commands to create a MariaDB alias for mysql.  
+Improved permissions and ownership settings for panel files.  
+Added TRUSTED_PROXIES and APP_BACKUP_DRIVER to the .env file.  
+Updated database initialization commands.  
+Configured crontab for the www-data user.  
+Provided instructions for Wings configuration.  
+
+### Wings Installer Script  
+
+Updated to install Docker and configure it for Wings.  
+Added commands to create a user for Wings.  
+Provided instructions for configuring Wings using the Panel administrative view.  
+Created a systemd service for Wings.  
+
+### Web Server Setup Script    
+
+Added support for Apache, NGINX, Caddy, and Lighttpd.  
+Configured each web server to work with PHP 8.3 and the Pelican Panel.  
+Provided a user-friendly menu to select the desired web server for installation and configuration.  
+
+**v0.0.1**  
+Initial release with basic installation scripts for Pelican Panel and Wings.  
+Basic configuration for Apache and NGINX web servers.  
