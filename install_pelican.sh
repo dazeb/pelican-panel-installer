@@ -1,374 +1,104 @@
-#!/bin/bash
+# Unofficial Pelican Panel Installer BETA 0.0.2  
+# Created by dazeb. Free to anyone to use and distribute.  
+# Please test the new beta branch and report any problems.  
+# Created out of a love for Pelican Panel and its predecessor Pterodactyl ❤  
+#!/bin/bash  
 
-# Function to print messages in green
-print_success() {
-    echo -e "\e[32m$1\e[0m"
-}
+# Update and install necessary packages
+sudo apt-get update
+sudo apt-get upgrade -y
+sudo apt-get install -y software-properties-common curl tar
 
-# Function to print messages in red
-print_error() {
-    echo -e "\e[31m$1\e[0m"
-}
+# Add PHP repository and install PHP 8.3 and necessary extensions
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt-get update
+sudo apt-get install -y php8.3 php8.3-gd php8.3-mysql php8.3-mbstring php8.3-bcmath php8.3-xml php8.3-curl php8.3-zip php8.3-intl php8.3-sqlite3 php8.3-fpm curl tar composer redis-server
 
-# Check if whiptail is installed, if not install it
-if ! command -v whiptail &> /dev/null; then
-    print_error "whiptail is not installed. Installing..."
-    sudo apt-get update && sudo apt-get install -y whiptail
-    if [ $? -ne 0 ]; then
-        print_error "Failed to install whiptail."
-        exit 1
-    else
-        print_success "whiptail installed successfully."
-    fi
-fi
+# Install MariaDB
+sudo apt-get install -y mariadb-server
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
 
-# Get user input for OS and webserver
-OS=$(whiptail --title "Select Operating System" --menu "Choose your OS" 15 60 4 \
-"Ubuntu 22.04" "" \
-"Ubuntu 24.04" "" \
-"Rocky Linux 9" "" \
-"Debian 12" "" 3>&1 1>&2 2>&3)
+# Create MariaDB alias for mysql
+sudo ln -s /usr/bin/mariadb /usr/bin/mysql
 
-WEBSERVER=$(whiptail --title "Select Webserver" --menu "Choose your webserver" 15 60 4 \
-"NGINX" "" \
-"Apache" "" 3>&1 1>&2 2>&3)
+# Secure MariaDB installation
+sudo mysql_secure_installation
 
-# Function to add ondrej/php repository
-add_php_repo() {
-    if ! grep -q "^deb .*$OS" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
-        print_success "Adding ondrej/php repository..."
-        sudo add-apt-repository ppa:ondrej/php -y
-        if [ $? -ne 0 ]; then
-            print_error "Failed to add ondrej/php repository."
-            exit 1
-        else
-            print_success "ondrej/php repository added successfully."
-        fi
-    else
-        print_success "ondrej/php repository already exists."
-    fi
-}
+# Create database and user for Pelican Panel
+DB_NAME="pelican"
+DB_USER="pelicanuser"
+DB_PASS="securepassword"
 
-# Function to install dependencies
-install_dependencies() {
-    print_success "Installing dependencies..."
-    sudo apt-get update
-    sudo apt-get install -y php8.2 php8.2-gd php8.2-mysql php8.2-mbstring php8.2-bcmath php8.2-xml php8.2-curl php8.2-zip php8.2-intl php8.2-sqlite3 php8.2-fpm curl tar composer redis-server
-    if [ "$WEBSERVER" == "NGINX" ]; then
-        sudo apt-get install -y nginx
-    elif [ "$WEBSERVER" == "Apache" ]; then
-        sudo apt-get install -y apache2
-    fi
-    if [ $? -ne 0 ]; then
-        print_error "Failed to install dependencies."
-        exit 1
-    else
-        print_success "Dependencies installed successfully."
-    fi
-}
+sudo mysql -u root -e "CREATE DATABASE ${DB_NAME};"
+sudo mysql -u root -e "CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+sudo mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+sudo mysql -u root -e "FLUSH PRIVILEGES;"
 
-# Function to install MariaDB
-install_mariadb() {
-    print_success "Installing MariaDB..."
-    curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | sudo bash
-    sudo apt-get install -y mariadb-server
-    if [ $? -ne 0 ]; then
-        print_error "Failed to install MariaDB."
-        exit 1
-    else
-        print_success "MariaDB installed successfully."
-    fi
-}
+# Download and extract Pelican Panel
+cd /var/www
+sudo curl -Lo pelican.tar.gz https://github.com/pelicanpanel/pelican/releases/latest/download/pelican.tar.gz
+sudo tar -xzvf pelican.tar.gz
+sudo mv pelican-* pelican
+cd pelican
 
-# Function to create MySQL user and database
-setup_mysql() {
-    print_success "Setting up MySQL user and database..."
-    MYSQL_ROOT_PASSWORD=$(whiptail --passwordbox "Enter the MySQL root password:" 10 60 3>&1 1>&2 2>&3)
-    MYSQL_PELICAN_PASSWORD=$(whiptail --passwordbox "Enter the password for the 'pelican' MySQL user:" 10 60 3>&1 1>&2 2>&3)
+# Install Composer dependencies
+sudo composer install --no-dev --optimize-autoloader
 
-    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE USER 'pelican'@'127.0.0.1' IDENTIFIED BY '$MYSQL_PELICAN_PASSWORD';"
-    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE panel;"
-    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON panel.* TO 'pelican'@'127.0.0.1';"
-    sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "FLUSH PRIVILEGES;"
+# Set permissions and ownership
+sudo chmod -R 755 /var/www/pelican/storage/* /var/www/pelican/bootstrap/cache/
+sudo chown -R www-data:www-data /var/www/pelican
 
-    if [ $? -ne 0 ]; then
-        print_error "Failed to set up MySQL user and database."
-        exit 1
-    else
-        print_success "MySQL user and database set up successfully."
-    fi
-}
+# Create .env file
+sudo cp .env.example .env
+sudo sed -i "s/DB_DATABASE=homestead/DB_DATABASE=${DB_NAME}/" .env
+sudo sed -i "s/DB_USERNAME=homestead/DB_USERNAME=${DB_USER}/" .env
+sudo sed -i "s/DB_PASSWORD=secret/DB_PASSWORD=${DB_PASS}/" .env
+echo "TRUSTED_PROXIES=127.0.0.1" | sudo tee -a .env
+echo "APP_BACKUP_DRIVER=daemon" | sudo tee -a .env
 
-# Function to create directories and download files
-create_directories_and_download() {
-    if [ ! -d /var/www/pelican ]; then
-        print_success "Creating directories and downloading files..."
-        sudo mkdir -p /var/www/pelican
-        cd /var/www/pelican
-        sudo curl -Lo panel.tar.gz https://github.com/pelican-dev/panel/releases/latest/download/panel.tar.gz
-        sudo tar -xzvf panel.tar.gz
-        sudo chmod -R 755 storage/* bootstrap/cache/
-        if [ $? -ne 0 ]; then
-            print_error "Failed to create directories and download files."
-            exit 1
-        else
-            print_success "Directories created and files downloaded successfully."
-        fi
-    else
-        print_success "Directories already exist. Skipping download."
-    fi
-}
+# Generate application key
+sudo php artisan key:generate --force
 
-# Function to install composer dependencies
-install_composer_dependencies() {
-    if [ ! -d /var/www/pelican/vendor ]; then
-        print_success "Installing composer dependencies..."
-        cd /var/www/pelican
-        sudo composer install --no-dev --optimize-autoloader
-        if [ $? -ne 0 ]; then
-            print_error "Failed to install composer dependencies."
-            exit 1
-        else
-            print_success "Composer dependencies installed successfully."
-        fi
-    else
-        print_success "Composer dependencies already installed."
-    fi
-}
+# Run database migrations and seeders
+sudo php artisan migrate --seed --force
 
-# Function to configure environment
-configure_environment() {
-    if [ ! -f /var/www/pelican/.env ]; then
-        print_success "Configuring environment..."
-        cd /var/www/pelican
-        sudo php artisan p:environment:setup
-        sudo php artisan p:environment:database
-        if [ $? -ne 0 ]; then
-            print_error "Failed to configure environment."
-            exit 1
-        else
-            print_success "Environment configured successfully."
-        fi
-    else
-        print_success "Environment already configured."
-    fi
-}
-
-# Function to set up mail
-setup_mail() {
-    if (whiptail --title "Mail Setup" --yesno "Do you want to set up mail?" 10 60); then
-        sudo php artisan p:environment:mail
-        if [ $? -ne 0 ]; then
-            print_error "Failed to set up mail."
-            exit 1
-        else
-            print_success "Mail set up successfully."
-        fi
-    fi
-}
-
-# Function to initialize database
-initialize_database() {
-    if [ ! -f /var/www/pelican/database/initialized ]; then
-        print_success "Initializing database..."
-        cd /var/www/pelican
-        sudo php artisan migrate --seed --force
-        if [ $? -ne 0 ]; then
-            print_error "Failed to initialize database."
-            exit 1
-        else
-            touch /var/www/pelican/database/initialized
-            print_success "Database initialized successfully."
-        fi
-    else
-        print_success "Database already initialized."
-    fi
-}
-
-# Function to create admin user
-create_admin_user() {
-    if (whiptail --title "Admin User Setup" --yesno "Do you want to create an admin user?" 10 60); then
-        sudo php artisan p:user:make
-        if [ $? -ne 0 ]; then
-            print_error "Failed to create admin user."
-            exit 1
-        else
-            print_success "Admin user created successfully."
-        fi
-    fi
-}
-
-# Function to configure crontab
-configure_crontab() {
-    if ! sudo crontab -l -u www-data | grep -q "artisan schedule:run"; then
-        print_success "Configuring crontab..."
-        echo "* * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1" | sudo tee -a /etc/crontab
-        if [ $? -ne 0 ]; then
-            print_error "Failed to configure crontab."
-            exit 1
-        else
-            print_success "Crontab configured successfully."
-        fi
-    else
-        print_success "Crontab already configured."
-    fi
-}
-
-# Function to set permissions
-set_permissions() {
-    print_success "Setting permissions..."
-    if [ "$WEBSERVER" == "NGINX" ]; then
-        sudo chown -R www-data:www-data /var/www/pelican
-    elif [ "$WEBSERVER" == "Apache" ]; then
-        sudo chown -R www-data:www-data /var/www/pelican
-    fi
-    if [ $? -ne 0 ]; then
-        print_error "Failed to set permissions."
-        exit 1
-    else
-        print_success "Permissions set successfully."
-    fi
-}
-
-# Function to configure NGINX
-configure_nginx() {
-    if [ "$WEBSERVER" == "NGINX" ]; then
-        DOMAIN=$(whiptail --inputbox "Enter your domain or IP address (Note: IPs cannot be used with SSL):" 10 60 3>&1 1>&2 2>&3)
-        if [ ! -f /etc/nginx/sites-available/pelican.conf ]; then
-            print_success "Creating new NGINX configuration file..."
-            cat <<EOL | sudo tee /etc/nginx/sites-available/pelican.conf
+# Configure NGINX
+sudo tee /etc/nginx/sites-available/pelican <<EOF
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name your_domain_or_IP;
 
     root /var/www/pelican/public;
-    index index.html index.htm index.php;
-    charset utf-8;
+    index index.php index.html index.htm;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    access_log off;
-    error_log  /var/log/nginx/pelican.app-error.log error;
-
-    # allow larger file uploads and longer script runtimes
-    client_max_body_size 100m;
-    client_body_timeout 120s;
-
-    sendfile off;
-
     location ~ \.php$ {
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param PHP_VALUE "upload_max_filesize = 100M \n post_max_size=100M";
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        fastcgi_param HTTP_PROXY "";
-        fastcgi_intercept_errors off;
-        fastcgi_buffer_size 16k;
-        fastcgi_buffers 4 16k;
-        fastcgi_connect_timeout 300;
-        fastcgi_send_timeout 300;
-        fastcgi_read_timeout 300;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 
     location ~ /\.ht {
         deny all;
     }
 }
-EOL
+EOF
 
-            if [ $? -ne 0 ]; then
-                print_error "Failed to create new NGINX configuration file."
-                exit 1
-            else
-                print_success "New NGINX configuration file created successfully."
-            fi
+# Enable NGINX site and restart NGINX
+sudo ln -s /etc/nginx/sites-available/pelican /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
 
-            print_success "Enabling new NGINX configuration..."
-            sudo ln -s /etc/nginx/sites-available/pelican.conf /etc/nginx/sites-enabled/pelican.conf
-            if [ $? -ne 0 ]; then
-                print_error "Failed to enable new NGINX configuration."
-                exit 1
-            else
-                print_success "New NGINX configuration enabled successfully."
-            fi
+# Enable and start Redis service
+sudo systemctl enable --now redis
 
-            print_success "Restarting NGINX..."
-            sudo systemctl restart nginx
-            if [ $? -ne 0 ]; then
-                print_error "Failed to restart NGINX."
-                exit 1
-            else
-                print_success "NGINX restarted successfully."
-            fi
-        else
-            print_success "NGINX configuration already exists."
-        fi
-    fi
-}
+# Configure crontab for www-data user
+(crontab -l -u www-data 2>/dev/null; echo "* * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1") | sudo crontab -u www-data -
 
-# Function to configure Redis queue worker
-configure_redis_queue_worker() {
-    print_success "Configuring Redis queue worker..."
+# Display message for Wings configuration
+whiptail --msgbox "Please go to your Panel administrative view, select Nodes from the sidebar, and create a new node. Copy the configuration code block and paste it into a new file called config.yml in /etc/pelican." 15 60
+sudo nano /etc/pelican/config.yml
 
-    cat <<EOL | sudo tee /etc/systemd/system/pelican.service
-# Pelican Queue File
-# ----------------------------------
-
-[Unit]
-Description=Pelican Queue Service
-After=redis-server.service
-
-[Service]
-# On some systems the user and group might be different.
-# Some systems use \`apache\` or \`nginx\` as the user and group.
-User=www-data
-Group=www-data
-Restart=always
-ExecStart=/usr/bin/php /var/www/pelican/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
-StartLimitInterval=180
-StartLimitBurst=30
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOL
-
-    if [ "$OS" == "Rocky Linux 9" ]; then
-        sudo sed -i 's/redis-server.service/redis.service/' /etc/systemd/system/pelican.service
-    fi
-
-    sudo systemctl enable --now redis-server
-    sudo systemctl enable --now pelican.service
-
-    if [ $? -ne 0 ]; then
-        print_error "Failed to configure Redis queue worker."
-        exit 1
-    else
-        print_success "Redis queue worker configured successfully."
-    fi
-}
-
-# Main script execution
-add_php_repo
-install_dependencies
-install_mariadb
-setup_mysql
-create_directories_and_download
-install_composer_dependencies
-configure_environment
-setup_mail
-initialize_database
-create_admin_user
-configure_crontab
-set_permissions
-configure_nginx
-configure_redis_queue_worker
-
-print_success "Pelican Panel installation and configuration completed successfully!"
+echo "Pelican Panel installation completed successfully!"
