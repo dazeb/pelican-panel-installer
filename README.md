@@ -1,9 +1,13 @@
 # Unofficial Pelican Panel Installer 0.0.1
 
-## 14 Jun 04 - NEW BRANCH FOR TESTING. SUPPORTS ALL WEB SERVERS.
+### 14 Jun 04 - New GitHub branch for updates and testing.
 Please test the new beta branch and report any problems. ❤️
 
-See [HERE](https://github.com/dazeb/pelican-panel-installer/edit/main/README.md#changelog) for changes.
+Click [here](https://github.com/dazeb/pelican-panel-installer/edit/main/README.md#changelog) for changes.  
+
+Click [here](https://github.com/dazeb/pelican-panel-installer/tree/beta) for beta branch
+
+---
 
 A shell script to install Pelican Panel on a VPS or Virtual Machine. (Still in development but working) 🚧
 
