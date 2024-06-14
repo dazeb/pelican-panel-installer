@@ -1,114 +1,160 @@
+# Unofficial Pelican Panel Installer BETA 0.0.2  
+# Created by dazeb. Free to anyone to use and distribute.  
+# Please test the new beta branch and report any problems.  
+# Created out of a love for Pelican Panel and its predecessor Pterodactyl ❤
 #!/bin/bash
 
-# Function to print messages in green
-print_success() {
-    echo -e "\e[32m$1\e[0m"
+# Function to install and configure Apache
+install_apache() {
+    sudo apt-get update
+    sudo apt-get install -y apache2 libapache2-mod-php8.3
+
+    # Configure Apache for Pelican Panel
+    sudo tee /etc/apache2/sites-available/pelican.conf <<EOF
+<VirtualHost *:80>
+    ServerAdmin admin@your_domain
+    DocumentRoot /var/www/pelican/public
+    ServerName your_domain_or_IP
+
+    <Directory /var/www/pelican/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+    # Enable Apache site and rewrite module
+    sudo a2ensite pelican
+    sudo a2enmod rewrite
+    sudo systemctl restart apache2
 }
 
-# Function to print messages in red
-print_error() {
-    echo -e "\e[31m$1\e[0m"
-}
+# Function to install and configure NGINX
+install_nginx() {
+    sudo apt-get update
+    sudo apt-get install -y nginx
 
-# Check if whiptail is installed, if not install it
-if ! command -v whiptail &> /dev/null; then
-    print_error "whiptail is not installed. Installing..."
-    sudo apt-get update && sudo apt-get install -y whiptail
-    if [ $? -ne 0 ]; then
-        print_error "Failed to install whiptail."
-        exit 1
-    else
-        print_success "whiptail installed successfully."
-    fi
-fi
-
-# Get user input for domain
-DOMAIN=$(whiptail --inputbox "Enter your domain or IP address (Note: IPs cannot be used with SSL):" 10 60 3>&1 1>&2 2>&3)
-
-# Remove the default NGINX configuration
-print_success "Removing default NGINX configuration..."
-sudo rm /etc/nginx/sites-enabled/default
-if [ $? -ne 0 ]; then
-    print_error "Failed to remove default NGINX configuration."
-    exit 1
-else
-    print_success "Default NGINX configuration removed successfully."
-fi
-
-# Create the new NGINX configuration file
-print_success "Creating new NGINX configuration file..."
-cat <<EOL | sudo tee /etc/nginx/sites-available/pelican.conf
+    # Configure NGINX for Pelican Panel
+    sudo tee /etc/nginx/sites-available/pelican <<EOF
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name your_domain_or_IP;
 
     root /var/www/pelican/public;
-    index index.html index.htm index.php;
-    charset utf-8;
+    index index.php index.html index.htm;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    access_log off;
-    error_log  /var/log/nginx/pelican.app-error.log error;
-
-    # allow larger file uploads and longer script runtimes
-    client_max_body_size 100m;
-    client_body_timeout 120s;
-
-    sendfile off;
-
     location ~ \.php$ {
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param PHP_VALUE "upload_max_filesize = 100M \n post_max_size=100M";
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        fastcgi_param HTTP_PROXY "";
-        fastcgi_intercept_errors off;
-        fastcgi_buffer_size 16k;
-        fastcgi_buffers 4 16k;
-        fastcgi_connect_timeout 300;
-        fastcgi_send_timeout 300;
-        fastcgi_read_timeout 300;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 
     location ~ /\.ht {
         deny all;
     }
 }
-EOL
+EOF
 
-if [ $? -ne 0 ]; then
-    print_error "Failed to create new NGINX configuration file."
-    exit 1
-else
-    print_success "New NGINX configuration file created successfully."
-fi
+    # Enable NGINX site and restart NGINX
+    sudo ln -s /etc/nginx/sites-available/pelican /etc/nginx/sites-enabled/
+    sudo systemctl restart nginx
+}
 
-# Enable the new NGINX configuration
-print_success "Enabling new NGINX configuration..."
-sudo ln -s /etc/nginx/sites-available/pelican.conf /etc/nginx/sites-enabled/pelican.conf
-if [ $? -ne 0 ]; then
-    print_error "Failed to enable new NGINX configuration."
-    exit 1
-else
-    print_success "New NGINX configuration enabled successfully."
-fi
+# Function to install and configure Caddy
+install_caddy() {
+    sudo apt-get update
+    sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo apt-key add -
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+    sudo apt-get update
+    sudo apt-get install -y caddy
 
-# Restart NGINX to apply the changes
-print_success "Restarting NGINX..."
-sudo systemctl restart nginx
-if [ $? -ne 0 ]; then
-    print_error "Failed to restart NGINX."
-    exit 1
-else
-    print_success "NGINX restarted successfully."
+    # Configure Caddy for Pelican Panel
+    sudo tee /etc/caddy/Caddyfile <<EOF
+your_domain_or_IP {
+    root * /var/www/pelican/public
+    encode gzip
+    php_fastcgi unix//run/php/php8.3-fpm.sock
+    file_server
+}
+EOF
+
+    # Restart Caddy service
+    sudo systemctl restart caddy
+}
+
+# Function to install and configure Lighttpd
+install_lighttpd() {
+    sudo apt-get update
+    sudo apt-get install -y lighttpd php8.3-fpm
+
+    # Enable FastCGI and PHP modules
+    sudo lighty-enable-mod fastcgi
+    sudo lighty-enable-mod fastcgi-php
+
+    # Configure Lighttpd for Pelican Panel
+    sudo tee /etc/lighttpd/conf-available/15-pelican.conf <<EOF
+server.modules += ( "mod_fastcgi" )
+
+$HTTP["host"] == "your_domain_or_IP" {
+    server.document-root = "/var/www/pelican/public"
+    index-file.names += ( "index.php", "index.html", "index.htm" )
+
+    fastcgi.server = ( ".php" =>
+        ( "localhost" =>
+            (
+                "socket" => "/run/php/php8.3-fpm.sock",
+                "broken-scriptfilename" => "enable"
+            )
+        )
+    )
+}
+EOF
+
+    # Enable Pelican configuration and restart Lighttpd
+    sudo lighty-enable-mod pelican
+    sudo systemctl restart lighttpd
+}
+
+# Main script logic
+echo "Select the web server to install and configure for Pelican Panel:"
+echo "1) Apache"
+echo "2) NGINX"
+echo "3) Caddy"
+echo "4) Lighttpd"
+read -p "Enter your choice [1-4]: " choice
+
+case $choice in
+    1)
+        install_apache
+        ;;
+    2)
+        install_nginx
+        ;;
+    3)
+        install_caddy
+        ;;
+    4)
+        install_lighttpd
+        ;;
+    *)
+        echo "Invalid choice. Exiting."
+        exit 1
+        ;;
+esac
+
+echo "Web server installation and configuration completed successfully!"
 fi
 
 print_success "NGINX configuration for Pelican Panel completed successfully!"
