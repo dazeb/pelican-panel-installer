@@ -2,103 +2,72 @@
 # Created by dazeb. Free to anyone to use and distribute.  
 # Please test the new beta branch and report any problems.  
 # Created out of a love for Pelican Panel and its predecessor Pterodactyl ❤  
-#!/bin/bash  
+#!/bin/bash
 
 # Update and install necessary packages
-sudo apt-get update
-sudo apt-get upgrade -y
-sudo apt-get install -y software-properties-common curl tar
+apt update
+apt upgrade -y
+apt install -y curl wget sudo lsb-release gnupg whiptail
 
-# Add PHP repository and install PHP 8.3 and necessary extensions
-sudo add-apt-repository ppa:ondrej/php -y
-sudo apt-get update
-sudo apt-get install -y php8.3 php8.3-gd php8.3-mysql php8.3-mbstring php8.3-bcmath php8.3-xml php8.3-curl php8.3-zip php8.3-intl php8.3-sqlite3 php8.3-fpm curl tar composer redis-server
+# Ask for MySQL root password
+MYSQL_ROOT_PASSWORD=$(whiptail --passwordbox "Enter MySQL root password:" 8 78 --title "MySQL Root Password" 3>&1 1>&2 2>&3)
 
 # Install MariaDB
-sudo apt-get install -y mariadb-server
-sudo systemctl start mariadb
-sudo systemctl enable mariadb
-
-# Create MariaDB alias for mysql
-sudo ln -s /usr/bin/mariadb /usr/bin/mysql
+apt install -y mariadb-server
+systemctl start mariadb
+systemctl enable mariadb
 
 # Secure MariaDB installation
-sudo mysql_secure_installation
+mysql_secure_installation
 
-# Create database and user for Pelican Panel
-DB_NAME="pelican"
-DB_USER="pelicanuser"
-DB_PASS="securepassword"
+# Ask for MySQL user password
+MYSQL_USER="pterodactyl"
+MYSQL_PASSWORD=$(whiptail --passwordbox "Enter password for MySQL user 'pterodactyl':" 8 78 --title "MySQL User Password" 3>&1 1>&2 2>&3)
+MYSQL_DATABASE="pterodactyl"
 
-sudo mysql -u root -e "CREATE DATABASE ${DB_NAME};"
-sudo mysql -u root -e "CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
-sudo mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
-sudo mysql -u root -e "FLUSH PRIVILEGES;"
+# Create MySQL user and database
+mysql -u root -p$MYSQL_ROOT_PASSWORD <<MYSQL_SCRIPT
+CREATE DATABASE $MYSQL_DATABASE;
+CREATE USER '$MYSQL_USER'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD';
+GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'localhost';
+FLUSH PRIVILEGES;
+MYSQL_SCRIPT
 
-# Download and extract Pelican Panel
-cd /var/www
-sudo curl -Lo pelican.tar.gz https://github.com/pelicanpanel/pelican/releases/latest/download/pelican.tar.gz
-sudo tar -xzvf pelican.tar.gz
-sudo mv pelican-* pelican
-cd pelican
+# Install Redis
+apt install -y redis-server
+systemctl enable redis-server
+systemctl start redis-server
 
-# Install Composer dependencies
-sudo composer install --no-dev --optimize-autoloader
+# Install PHP and dependencies
+apt install -y php php-fpm php-mysql php-redis php-xml php-mbstring php-zip php-gd php-curl
 
-# Set permissions and ownership
-sudo chmod -R 755 /var/www/pelican/storage/* /var/www/pelican/bootstrap/cache/
-sudo chown -R www-data:www-data /var/www/pelican
+# Download and configure Pelican Panel
+mkdir -p /var/www/pterodactyl
+cd /var/www/pterodactyl
+curl -Lo panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
+tar -xzvf panel.tar.gz
+chmod -R 755 storage/* bootstrap/cache/
 
-# Create .env file
-sudo cp .env.example .env
-sudo sed -i "s/DB_DATABASE=homestead/DB_DATABASE=${DB_NAME}/" .env
-sudo sed -i "s/DB_USERNAME=homestead/DB_USERNAME=${DB_USER}/" .env
-sudo sed -i "s/DB_PASSWORD=secret/DB_PASSWORD=${DB_PASS}/" .env
-echo "TRUSTED_PROXIES=127.0.0.1" | sudo tee -a .env
-echo "APP_BACKUP_DRIVER=daemon" | sudo tee -a .env
+# Configure environment
+cp .env.example .env
+sed -i "s/DB_DATABASE=pterodactyl/DB_DATABASE=$MYSQL_DATABASE/" .env
+sed -i "s/DB_USERNAME=pterodactyl/DB_USERNAME=$MYSQL_USER/" .env
+sed -i "s/DB_PASSWORD=secret/DB_PASSWORD=$MYSQL_PASSWORD/" .env
+
+# Install Composer and dependencies
+curl -sS https://getcomposer.org/installer | php
+php composer.phar install --no-dev --optimize-autoloader
 
 # Generate application key
-sudo php artisan key:generate --force
+php artisan key:generate --force
 
-# Run database migrations and seeders
-sudo php artisan migrate --seed --force
+# Run database migrations
+php artisan migrate --seed --force
 
-# Configure NGINX
-sudo tee /etc/nginx/sites-available/pelican <<EOF
-server {
-    listen 80;
-    server_name your_domain_or_IP;
+# Set up crontab
+(crontab -l ; echo "* * * * * php /var/www/pterodactyl/artisan schedule:run >> /dev/null 2>&1") | crontab -
 
-    root /var/www/pelican/public;
-    index index.php index.html index.htm;
-
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-    }
-
-    location ~ /\.ht {
-        deny all;
-    }
-}
-EOF
-
-# Enable NGINX site and restart NGINX
-sudo ln -s /etc/nginx/sites-available/pelican /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
-
-# Enable and start Redis service
-sudo systemctl enable --now redis
-
-# Configure crontab for www-data user
-(crontab -l -u www-data 2>/dev/null; echo "* * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1") | sudo crontab -u www-data -
-
-# Display message for Wings configuration
-whiptail --msgbox "Please go to your Panel administrative view, select Nodes from the sidebar, and create a new node. Copy the configuration code block and paste it into a new file called config.yml in /etc/pelican." 15 60
-sudo nano /etc/pelican/config.yml
+# Set permissions
+chown -R www-data:www-data /var/www/pterodactyl
 
 echo "Pelican Panel installation completed successfully!"
