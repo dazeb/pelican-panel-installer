@@ -5,51 +5,45 @@
 #!/bin/bash
 
 # Update and install necessary packages
-sudo apt-get update
-sudo apt-get upgrade -y
-sudo apt-get install -y curl tar
+apt update
+apt upgrade -y
+apt install -y curl wget sudo lsb-release gnupg whiptail
 
-# Add Docker repository and install Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-# Enable and start Docker service
-sudo systemctl enable --now docker
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+systemctl enable docker
+systemctl start docker
 
 # Create a user for Wings
-sudo useradd -m -d /etc/pelican -s /bin/false pelican
+useradd -m -d /etc/pterodactyl -s /bin/bash pterodactyl
+usermod -aG docker pterodactyl
 
-# Download and install Wings
-cd /etc/pelican
-sudo curl -Lo wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
-sudo chmod +x wings
+# Download and configure Wings
+su - pterodactyl -c "mkdir -p /etc/pterodactyl"
+su - pterodactyl -c "curl -Lo /etc/pterodactyl/config.yml https://raw.githubusercontent.com/pterodactyl/wings/develop/config.yml"
+su - pterodactyl -c "curl -Lo /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64"
+su - pterodactyl -c "chmod +x /usr/local/bin/wings"
 
-# Create Wings configuration file
-whiptail --msgbox "Please go to your Panel administrative view, select Nodes from the sidebar, and create a new node. Copy the configuration code block and paste it into a new file called config.yml in /etc/pelican." 15 60
-sudo nano /etc/pelican/config.yml
-
-# Create systemd service for Wings
-sudo tee /etc/systemd/system/wings.service <<EOF
+# Set up Wings as a systemd service
+cat <<EOT > /etc/systemd/system/wings.service
 [Unit]
 Description=Pterodactyl Wings Daemon
 After=docker.service
 Requires=docker.service
 
 [Service]
-User=pelican
-Group=pelican
-WorkingDirectory=/etc/pelican
-ExecStart=/etc/pelican/wings
+User=pterodactyl
+WorkingDirectory=/etc/pterodactyl
+ExecStart=/usr/local/bin/wings
 Restart=on-failure
 StartLimitInterval=600
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOT
 
-# Enable and start Wings service
-sudo systemctl enable --now wings
+systemctl enable wings
+systemctl start wings
 
 echo "Wings installation completed successfully!"
